@@ -24,6 +24,8 @@ import io
 import sys
 import csv
 
+import pdb
+
 # Debug flag. Set this to true if you would like to see ffmpeg errors
 debug = False
 
@@ -258,6 +260,7 @@ def parse_annotations(d_set,dl_dir):
 
   # Update the final clip with its stop time
   clips[-1].stop = annotations[-1][1]
+  # 得到的clips列表每一项是一个video_clip, 代表了一个视频中同一个目标(自然也是同一类)从出现到消失的clip片段的对象
 
   # Sort the clips by youtube id
   clips.sort(key=lambda x: x.yt_id)
@@ -283,6 +286,7 @@ def parse_annotations(d_set,dl_dir):
 
     # Update the current video name
     current_vid_id = vid_id
+  # 得到的 vids 列表每一项是一个video, 每个video包含各自的youtube_id, 和一个clip列表, 列表的每个元素代表该视频中的一个clip, 因为可能存在不同目标的不同clip, 所以clip之间可能存在交叠?
 
   return annotations,clips,vids
 
@@ -294,14 +298,21 @@ def sched_downloads(d_set,dl_dir,num_threads,vids):
 
   # Tell the user when downloads were started
   datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+  print('complete clips, vids generation')
 
-  # Download and cut in parallel threads giving
-  with futures.ProcessPoolExecutor(max_workers=num_threads) as executor:
-    fs = [executor.submit(dl_and_cut,vid) for vid in vids]
-    for i, f in enumerate(futures.as_completed(fs)):
-      # Write progress to error so that it can be seen
-      sys.stderr.write( \
-        "Downloaded video: {} / {} \r".format(i, len(vids)))
+  for i, vid in enumerate(vids):
+    print("start: {} / {}".format(i, len(vids)))
+#    pdb.set_trace()
+    dl_and_cut(vid)
+    print("complete: {} / {}".format(i, len(vids)))
+
+#  # Download and cut in parallel threads giving
+#  with futures.ProcessPoolExecutor(max_workers=num_threads) as executor:
+#    fs = [executor.submit(dl_and_cut,vid) for vid in vids]
+#    for i, f in enumerate(futures.as_completed(fs)):
+#      # Write progress to error so that it can be seen
+#      sys.stderr.write( \
+#        "Downloaded video: {} / {} \r".format(i, len(vids)))
 
   print( d_set+': All videos downloaded' )
 
