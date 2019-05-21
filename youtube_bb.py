@@ -25,6 +25,8 @@ import sys
 import csv
 
 import pdb
+import platform
+import os.path as osp
 
 # Debug flag. Set this to true if you would like to see ffmpeg errors
 debug = False
@@ -148,44 +150,54 @@ def dl_and_cut(vid):
   # Use youtube_dl to download the video
   FNULL = open(os.devnull, 'w')
   check_call(['youtube-dl', \
+#  os.system(['youtube-dl', \
     #'--no-progress', \
     '-f','best[ext=mp4]', \
     '-o',d_set_dir+'/'+vid.yt_id+'_temp.mp4', \
     'youtu.be/'+vid.yt_id ], \
      stdout=FNULL,stderr=subprocess.STDOUT )
 
-  for clip in vid.clips:
-    # Verify that the video has been downloaded. Skip otherwise
-    if os.path.exists(d_set_dir+'/'+vid.yt_id+'_temp.mp4'):
-      # Make the class directory if it doesn't exist yet
-      class_dir = d_set_dir+'/'+str(clip.class_id)
-      check_call(' '.join(['mkdir', '-p', class_dir]), shell=True)
+  save_video  = True
+  if not save_video:
+    for clip in vid.clips:
+      # Verify that the video has been downloaded. Skip otherwise
+      if os.path.exists(d_set_dir+'/'+vid.yt_id+'_temp.mp4'):
+        # Make the class directory if it doesn't exist yet
+        class_dir = osp.join(d_set_dir, str(clip.class_id))
 
-      # Cut out the clip within the downloaded video and save the clip
-      # in the correct class directory. Full re-encoding is used to maintain
-      # frame accuracy. See here for more detail:
-      # http://www.markbuckler.com/post/cutting-ffmpeg/
-      if debug:
-          check_call(['ffmpeg',\
-            '-i','file:'+d_set_dir+'/'+vid.yt_id+'_temp.mp4',\
-            '-ss', str(float(clip.start)/1000),\
-            '-strict','-2',\
-            '-t', str((float(clip.stop)-float(clip.start))/1000),\
-            '-threads','1',\
-            class_dir+'/'+clip.name+'.mp4'])
-      else:
-          # If not debugging, hide the error outputs from failed downloads
-          check_call(['ffmpeg',\
-            '-i','file:'+d_set_dir+'/'+vid.yt_id+'_temp.mp4',\
-            '-ss', str(float(clip.start)/1000),\
-            '-strict','-2',\
-            '-t', str((float(clip.stop)-float(clip.start))/1000),\
-            '-threads','1',\
-            class_dir+'/'+clip.name+'.mp4'],
-            stdout=FNULL,stderr=subprocess.STDOUT )
+        if 'Windows' in platform.platform():
+#        check_call(' '.join(['md', class_dir]), shell=True)
+          os.system(' '.join(['md', class_dir]))
+        else:
+          check_call(' '.join(['mkdir', '-p', class_dir]), shell=True)
 
-  # Remove the temporary video
-  os.remove(d_set_dir+'/'+vid.yt_id+'_temp.mp4')
+        # Cut out the clip within the downloaded video and save the clip
+        # in the correct class directory. Full re-encoding is used to maintain
+        # frame accuracy. See here for more detail:
+        # http://www.markbuckler.com/post/cutting-ffmpeg/
+        if debug:
+              check_call(['ffmpeg',\
+              '-i','file:'+osp.join(d_set_dir, vid.yt_id+'_temp.mp4'),\
+              '-ss', str(float(clip.start)/1000),\
+              '-strict','-2',\
+              '-t', str((float(clip.stop)-float(clip.start))/1000),\
+              '-threads','1',\
+              class_dir+'/'+clip.name+'.mp4'])
+        else:
+            # If not debugging, hide the error outputs from failed downloads
+            pdb.set_trace()
+            check_call(['ffmpeg',\
+#          os.system(['ffmpeg',\
+              '-i','file:'+osp.join(d_set_dir, vid.yt_id+'_temp.mp4'),\
+              '-ss', str(float(clip.start)/1000),\
+              '-strict','-2',\
+              '-t', str((float(clip.stop)-float(clip.start))/1000),\
+              '-threads','1',\
+              class_dir+'/'+clip.name+'.mp4'], 
+              stdout=FNULL,stderr=subprocess.STDOUT )
+
+    # Remove the temporary video
+    os.remove(d_set_dir+'/'+vid.yt_id+'_temp.mp4')
 
 
 # Parse the annotation csv file and schedule downloads and cuts
@@ -294,25 +306,29 @@ def sched_downloads(d_set,dl_dir,num_threads,vids):
   d_set_dir = dl_dir+'/'+d_set+'/'
 
   # Make the directory for this dataset
-  check_call(' '.join(['mkdir', '-p', d_set_dir]), shell=True)
+  if 'Windows' in platform.platform():
+    #check_call(' '.join(['md', d_set_dir]), shell=True)
+    os.system(' '.join(['md', d_set_dir]))
+  else:
+    check_call(' '.join(['mkdir', '-p', d_set_dir]), shell=True)
 
   # Tell the user when downloads were started
   datetime.now().strftime("%Y-%m-%d %H:%M:%S")
   print('complete clips, vids generation')
 
-  for i, vid in enumerate(vids):
-    print("start: {} / {}".format(i, len(vids)))
+#  for i, vid in enumerate(vids):
+#    print("start: {} / {}".format(i, len(vids)))
 #    pdb.set_trace()
-    dl_and_cut(vid)
-    print("complete: {} / {}".format(i, len(vids)))
+#    dl_and_cut(vid)
+#    print("complete: {} / {}".format(i, len(vids)))
 
-#  # Download and cut in parallel threads giving
-#  with futures.ProcessPoolExecutor(max_workers=num_threads) as executor:
-#    fs = [executor.submit(dl_and_cut,vid) for vid in vids]
-#    for i, f in enumerate(futures.as_completed(fs)):
-#      # Write progress to error so that it can be seen
-#      sys.stderr.write( \
-#        "Downloaded video: {} / {} \r".format(i, len(vids)))
+  # Download and cut in parallel threads giving
+  with futures.ProcessPoolExecutor(max_workers=num_threads) as executor:
+    fs = [executor.submit(dl_and_cut,vid) for vid in vids]
+    for i, f in enumerate(futures.as_completed(fs)):
+      # Write progress to error so that it can be seen
+      sys.stderr.write( \
+        "Downloaded video: {} / {} \r".format(i, len(vids)))
 
   print( d_set+': All videos downloaded' )
 

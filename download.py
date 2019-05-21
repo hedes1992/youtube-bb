@@ -21,13 +21,20 @@ import youtube_bb
 import sys
 from subprocess import check_call
 
+import platform, pdb, os
+
 # Parse the annotation csv file and schedule downloads and cuts
 def parse_and_sched(dl_dir='videos',num_threads=4):
   """Download the entire youtube-bb data set into `dl_dir`.
   """
 
   # Make the download directory if it doesn't already exist
-  check_call(['mkdir', '-p', dl_dir])
+  if 'Windows' in platform.platform():
+#    pdb.set_trace()
+    #check_call('md {}'.format(dl_dir))
+    os.system('md {}'.format(dl_dir))
+  else:
+    check_call(['mkdir', '-p', dl_dir])
 
   # For each of the four datasets
   for d_set in youtube_bb.d_sets:
